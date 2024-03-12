@@ -1,94 +1,100 @@
 .macro syscall %n
-  li a7, %n
-  ecall
+    li a7, %n
+	ecall
 .end_macro
 
 .macro readch
-  syscall 12
+    syscall 12
 .end_macro
 
 .macro printch
-  syscall 11
+    syscall 11
 .end_macro
 
 .macro println # print \n | a1 - buf for swap a0
-  mv a1, a0
-  li a0, 10
-  syscall 11
-  mv a0, a1
+  	mv a1, a0
+    li a0, 10
+    syscall 11
+    mv a0, a1
 .end_macro
 
 .macro exit %ecode
-  li a0, %ecode
-  syscall 93
+    li a0, %ecode
+    syscall 93
 .end_macro
 
-.macro inside %x %y # а0 more or eq х and less у | t0, t1 - temp | a1 - result (inv)
+.macro inside %x %y # а0 more or eq х and less у | t0, t1 - temp | t2 - result (inv)
   slti t0, a0, %y
   slti t1, a0, %x
   not t1, t1
-  and a1, t0, t1
-  addi a1, a1, -1
+  and t2, t0, t1
+  addi t2, t2, -1
 .end_macro
-  
+
+.macro load_clear_rhex %r # loads read_hex result to %r and clears after func  
+  mv %r, a1 # 1 num -> s0
+  mv a1, zero # clear a1
+  mv s3, zero # clear counter
+.end_macro
+    
 main:
-  li t6, -2 # flag for '-' to print
-  li t4, 6 # counter for input len
-  li t5, 0 # counter for scan
+  li s2, 7 # counter for input len
+  li s3, 0 # counter for scan
+  li s4, 0xf0000000 # bit mask
+  li s5, 28         # counter for digits
   
-  call read # read 1 num
-  mv a5, s1 # 1 num -> а5
-  mv s1, zero # clear s1
-  mv t5, zero # clear counter
-  call read # read 2 num
-  mv a6, s1 # 2 num -> a6
-  mv s1, zero # clear s1
-  j readop
+  call read_hex # read 1 num
+  load_clear_rhex s0
   
-read: # writes 7 digit nums to s1
-  readch # return when <enter>
-  li a2, 10
-  beq a0, a2, return
+  call read_hex # read 2 num
+  load_clear_rhex s1
+  
+  call readop # read and perform operation func
+  
+  call print_hex # prints hex num
+  
+  j end 
+  
+read_hex: # writes 7 digit nums to a1
+  readch 
+  
+  li t1, 10 # return when <enter>
+  beq a0, t1, return
   
   addi a0, a0, -48
-  addi s2, s2, 48
+  addi t0, t0, 48
   
   inside 0, 10 #0 - 9
-  beq a1, zero, add_
+  beq t2, zero, add_
   
   inside 17, 23 #a - f
   addi a0, a0, -7
-  addi s2, s2, 7
-  beq a1, zero, add_
+  addi t0, t0, 7
+  beq t2, zero, add_
   
   inside 42, 48 #A - F
   addi a0, a0, -32
-  addi s2, s2, 7
-  beq a1, zero, add_
+  addi t0, t0, 7
+  beq t2, zero, add_
   
-  j end
+  ret
   
-add_:
-  slli s1, s1, 4
-  add s1, s1, a0
-  mv s0, a0
-  add a0, a0, s2
-  mv a0, s0
+add_: # add hex digit to num | subfunc for read_hex
+  slli a1, a1, 4
+  add a1, a1, a0
+  add a0, a0, t0
   
-  addi t5, t5, 1
-  ble t5, t4, read
+  addi s3, s3, 1
+  ble s3, s2, read_hex
   
   println
   ret
 
-readop:
+readop: # reads and performs an operation res -> a1
   li t0, 43         # +
   li t1, 45         # -
   li t2, 38         # &
   li t3, 124        # |
-  li t5, 28         # counter for digits
-  
-  li a2, 0xf0000000 # bit mask
 
   readch
   println
@@ -97,69 +103,50 @@ readop:
   beq a0, t2, and_
   beq a0, t3, or_
   
-  j end
+  ret
   
 plus:
-  add a4, a6, a5
-  call process
-  j plus
-
-and_: 
-  and a4, a6, a5
-  call process
-  j and_
-
-or_:
-  or a4, a6, a5
-  call process
-  j or_
+  add a1, s1, s0
+  ret
 
 minus:
-  sub a4, a5, a6
-  blt a4, zero, negate
-  j no_negate
+  sub a1, s0, s1
+  ret
 
-negate:
-  addi t6, t6, 1 # flag for minus
-  neg a4, a4 # abs num
-  blt t6, zero, print_minus
-  j no_negate
+and_: 
+  and a1, s1, s0
+  ret
 
-print_minus:
-  li a0, 45
-  printch
-  j no_negate
+or_:
+  or a1, s1, s0
+  ret
 
-no_negate:
-  call process
-  j minus
-
-process:
+print_hex: #prints hex number on a1
   li t0, -4 # subtract the number of digits
-  beq t5, t0, end # checking for the end of the operation
+  beq s5, t0, return # checking for the end of the operation
 
-  and a3, a4, a2 # apply the mask
-  srli a2, a2, 4 # shift the mask to the next discharge
-  srl a3, a3, t5 # shift the num to the next discharge
+  and a3, a1, s4 # apply the mask
+  srli s4, s4, 4 # shift the mask to the next discharge
+  srl a3, a3, s5 # shift the num to the next discharge
   
-  addi t5, t5, -4 # reducing the discharge counter
+  addi s5, s5, -4 # reducing the discharge counter
   mv a0, a3		  # loading the value of the current digit into a0
-  j print # print digit
+  j print_digit # print digit
 
-print: 
+print_digit: #prints hex digit on a0
   inside 0, 10
-  beq a1, zero, printnum
+  beq t2, zero, printnum
   j printlet
 
 printnum:
   addi a0, a0, 48
   printch
-  ret
+  j print_hex
 
 printlet:
   addi a0, a0, 87
   printch
-  ret
+  j print_hex
 
 return:
   ret
