@@ -7,6 +7,15 @@
     syscall 12
 .end_macro
 
+.macro error %str
+.data
+str: .asciz %str
+.text
+  la a0, str
+  syscall 4
+  exit 1
+.end_macro
+
 .macro printch
     syscall 11
 .end_macro
@@ -23,74 +32,77 @@
     syscall 93
 .end_macro
 
-.macro inside %x %y # а0 more or eq х and less у | t0, t1 - temp | t2 - result (inv)
-  slti t0, a0, %y
-  slti t1, a0, %x
-  not t1, t1
-  and t2, t0, t1
-  addi t2, t2, -1
+.macro inside %x %y # t3 more or eq х and less у | t4, t5 - temp | t6 - result (inv)
+  slti t4, t3, %y
+  slti t5, t3, %x
+  not t5, t5
+  and t6, t4, t5
+  addi t6, t6, -1
 .end_macro
 
-.macro load_clear_rhex %r # loads read_hex result to %r and clears after func  
-  mv %r, a1 # 1 num -> s0
-  mv a1, zero # clear a1
-  mv s3, zero # clear counter
+.macro readop_f %r1 %r2
+  mv a2, %r1
+  mv a3, %r2
+  call readop
 .end_macro
-    
+  
 main:
-  li s2, 7 # counter for input len
-  li s3, 0 # counter for scan
-  li s4, 0xf0000000 # bit mask
-  li s5, 28         # counter for digits
+  call read_hex # read 1 num -> a0
+  mv t0, a0
   
-  call read_hex # read 1 num
-  load_clear_rhex s0
+  call read_hex # read 2 num -> a0
+  mv t1, a0
   
-  call read_hex # read 2 num
-  load_clear_rhex s1
+  readop_f t0, t1 # read and perform operation func %r1, %r2 -> a0
   
-  call readop # read and perform operation func
-  
-  call print_hex # prints hex num
+  call print_hex # prints hex num on a0
   
   j end 
-  
-read_hex: # writes 7 digit nums to a1
-  readch 
+
+
+read_hex: # writes 7 digit nums to a0
+  li a2, 7 # counter for input len
+  li a3, 0 # counter for scan
+  j read_hex1
+        
+read_hex1: 
+  readch
+  mv t3, a0 
   
   li t1, 10 # return when <enter>
-  beq a0, t1, return
+  beq t3, t1, return_hex
   
-  addi a0, a0, -48
-  addi t0, t0, 48
+  addi t3, t3, -48
   
   inside 0, 10 #0 - 9
-  beq t2, zero, add_
+  beq t6, zero, add_
   
   inside 17, 23 #a - f
-  addi a0, a0, -7
-  addi t0, t0, 7
-  beq t2, zero, add_
+  addi t3, t3, -7
+  beq t6, zero, add_
   
   inside 42, 48 #A - F
-  addi a0, a0, -32
-  addi t0, t0, 7
-  beq t2, zero, add_
+  addi t3, t3, -32
+  beq t6, zero, add_
   
-  ret
+  j return_hex
   
 add_: # add hex digit to num | subfunc for read_hex
   slli a1, a1, 4
-  add a1, a1, a0
-  add a0, a0, t0
+  add a1, a1, t3
   
-  addi s3, s3, 1
-  ble s3, s2, read_hex
+  addi a3, a3, 1
+  ble a3, a2, read_hex1
   
   println
+  j return_hex
+
+return_hex:
+  mv a0, a1
+  mv a1, zero
   ret
 
-readop: # reads and performs an operation res -> a1
+readop: # reads and performs an operation %r1 ? %r2 -> a0
   li t0, 43         # +
   li t1, 45         # -
   li t2, 38         # &
@@ -104,49 +116,53 @@ readop: # reads and performs an operation res -> a1
   beq a0, t3, or_
   
   ret
-  
+      
 plus:
-  add a1, s1, s0
+  add a0, a3, a2
   ret
 
 minus:
-  sub a1, s0, s1
+  sub a0, a2, a3
   ret
 
 and_: 
-  and a1, s1, s0
+  and a0, a2, a3
   ret
 
 or_:
-  or a1, s1, s0
+  or a0, a2, a3
   ret
 
-print_hex: #prints hex number on a1
+print_hex: #prints hex number on a0
+  mv t1, a0
+  li a4, 0xf0000000 # bit mask
+  li a5, 28         # counter for digits
+  j print_hex1
+
+print_hex1:
   li t0, -4 # subtract the number of digits
-  beq s5, t0, return # checking for the end of the operation
+  beq a5, t0, return # checking for the end of the operation
 
-  and a3, a1, s4 # apply the mask
-  srli s4, s4, 4 # shift the mask to the next discharge
-  srl a3, a3, s5 # shift the num to the next discharge
+  and a0, t1, a4 # apply the mask
+  srli a4, a4, 4 # shift the mask to the next discharge
+  srl a0, a0, a5 # shift the num to the next discharge
   
-  addi s5, s5, -4 # reducing the discharge counter
-  mv a0, a3		  # loading the value of the current digit into a0
-  j print_digit # print digit
-
-print_digit: #prints hex digit on a0
+  addi a5, a5, -4 # reducing the discharge counter
+  
+  mv t3, a0
   inside 0, 10
-  beq t2, zero, printnum
+  beq t6, zero, printnum
   j printlet
 
 printnum:
   addi a0, a0, 48
   printch
-  j print_hex
+  j print_hex1
 
 printlet:
   addi a0, a0, 87
   printch
-  j print_hex
+  j print_hex1
 
 return:
   ret
