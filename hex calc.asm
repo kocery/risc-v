@@ -1,36 +1,4 @@
-.macro syscall %n
-    li a7, %n
-	ecall
-.end_macro
-
-.macro readch
-    syscall 12
-.end_macro
-
-.macro error %str
-.data
-str: .asciz %str
-.text
-  la a0, str
-  syscall 4
-  exit 1
-.end_macro
-
-.macro printch
-    syscall 11
-.end_macro
-
-.macro println # print \n | a1 - buf for swap a0
-  	mv a1, a0
-    li a0, 10
-    syscall 11
-    mv a0, a1
-.end_macro
-
-.macro exit %ecode
-    li a0, %ecode
-    syscall 93
-.end_macro
+.include "simpleLib.asm"
 
 .macro inside %x %y # t3 more or eq х and less у | t4, t5 - temp | t6 - result (inv)
   slti t4, t3, %y
