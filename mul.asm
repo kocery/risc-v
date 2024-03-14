@@ -27,11 +27,6 @@ str: .asciz %str
   mv a0, a1
 .end_macro
 
-.macro exit %ecode
-  li a0, %ecode
-  syscall 93
-.end_macro
-
 .macro inside %x %y # t3 more or eq х and less у | t4, t5 - temp | t6 - result (inv)
   slti t4, t3, %y
   slti t5, t3, %x
@@ -40,12 +35,11 @@ str: .asciz %str
   addi t6, t6, -1
 .end_macro
 
-.macro readop_f %r1 %r2
-  mv a2, %r1
-  mv a3, %r2
-  call readop
+.macro exit %ecode
+  li a0, %ecode
+  syscall 93
 .end_macro
-  
+
 main:
   call read_hex # read 1 num -> a0
   mv s0, a0
@@ -120,37 +114,6 @@ add_: # add hex digit to num | subfunc for read_hex
 return_hex:
   mv a0, a1
   mv a1, zero
-  ret
-
-readop: # reads and performs an operation res -> a
-  li t0, 43         # +
-  li t1, 45         # -
-  li t2, 38         # &
-  li t3, 124        # |
-
-  readch
-  println
-  beq a0, t0, plus
-  beq a0, t1, minus
-  beq a0, t2, and_
-  beq a0, t3, or_
-  
-  ret
-      
-plus:
-  add a0, a3, a2
-  ret
-
-minus:
-  sub a0, a2, a3
-  ret
-
-and_: 
-  and a0, a2, a3
-  ret
-
-or_:
-  or a0, a2, a3
   ret
 
 print_hex:
