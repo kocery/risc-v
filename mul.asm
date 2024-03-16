@@ -1,43 +1,13 @@
-.macro syscall %n
-  li a7, %n
-	ecall
-.end_macro
+.include "simpleLib.asm"
 
-.macro readch
-  syscall 12
-.end_macro
+.eqv scr t5
 
-.macro error %str
-.data
-str: .asciz %str
-.text
-  la a0, str
-  syscall 4
-  exit 1
-.end_macro
-
-.macro printch
-  syscall 11
-.end_macro
-
-.macro println # print \n | a1 - buf for swap a0
-  mv a1, a0
-  li a0, 10
-  syscall 11
-  mv a0, a1
-.end_macro
-
-.macro inside %x %y # t3 more or eq х and less у | t4, t5 - temp | t6 - result (inv)
-  slti t4, t3, %y
-  slti t5, t3, %x
-  not t5, t5
-  and t6, t4, t5
-  addi t6, t6, -1
-.end_macro
-
-.macro exit %ecode
-  li a0, %ecode
-  syscall 93
+.macro inside %res %arg %x %y # %arg more or eq х and less у | t4- temp | %res - result (inv)
+  slti t4, %arg, %y
+  slti scr, %arg, %x
+  not scr, scr
+  and %res, t4, scr
+  addi %res, %res, -1
 .end_macro
 
 main:
@@ -74,12 +44,12 @@ mulHex2:
   mv a0, t3
   ret
 
-read_hex:
+read_hex: # writes 8 digit nums to a0
+  li a1, 0 # result hex
   li a2, 7 # counter for input len
   li a3, 0 # counter for scan
-  j read_hex1
         
-read_hex1: # writes 7 digit nums to a0
+read_hex1: 
   readch
   mv t3, a0 
   
@@ -88,18 +58,18 @@ read_hex1: # writes 7 digit nums to a0
   
   addi t3, t3, -48
   
-  inside 0, 10 #0 - 9
+  inside t6, t3, 0, 10 #0 - 9
   beq t6, zero, add_
   
-  inside 17, 23 #a - f
+  inside t6, t3, 17, 23 #a - f
   addi t3, t3, -7
   beq t6, zero, add_
   
-  inside 42, 48 #A - F
+  inside t6, t3, 42, 48 #A - F
   addi t3, t3, -32
   beq t6, zero, add_
   
-  j return_hex
+  error "incorrect input"
   
 add_: # add hex digit to num | subfunc for read_hex
   slli a1, a1, 4
@@ -108,21 +78,19 @@ add_: # add hex digit to num | subfunc for read_hex
   addi a3, a3, 1
   ble a3, a2, read_hex1
   
-  println
   j return_hex
 
 return_hex:
   mv a0, a1
-  mv a1, zero
   ret
 
-print_hex:
+print_hex: #prints hex number on a0
   mv t1, a0
   li a4, 0xf0000000 # bit mask
   li a5, 28         # counter for digits
   j print_hex1
 
-print_hex1: #prints hex number on a0
+print_hex1:
   li t0, -4 # subtract the number of digits
   beq a5, t0, return # checking for the end of the operation
 
@@ -133,7 +101,7 @@ print_hex1: #prints hex number on a0
   addi a5, a5, -4 # reducing the discharge counter
   
   mv t3, a0
-  inside 0, 10
+  inside t6, t3, 0, 10
   beq t6, zero, printnum
   j printlet
 
