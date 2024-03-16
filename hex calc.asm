@@ -1,37 +1,37 @@
 .include "simpleLib.asm"
 
-.macro inside %x %y # t3 more or eq х and less у | t4, t5 - temp | t6 - result (inv)
-  slti t4, t3, %y
-  slti t5, t3, %x
-  not t5, t5
-  and t6, t4, t5
-  addi t6, t6, -1
-.end_macro
+.eqv scr t5
 
-.macro readop_f %r1 %r2
-  mv a2, %r1
-  mv a3, %r2
-  call readop
+.macro inside %res %arg %x %y # %arg more or eq х and less у | t4- temp | %res - result (inv)
+  slti t4, %arg, %y
+  slti scr, %arg, %x
+  not scr, scr
+  and %res, t4, scr
+  addi %res, %res, -1
 .end_macro
   
 main:
   call read_hex # read 1 num -> a0
-  mv t0, a0
+  mv s0, a0
+  println
   
   call read_hex # read 2 num -> a0
-  mv t1, a0
+  mv s1, a0
+  println
   
-  readop_f t0, t1 # read and perform operation func %r1, %r2 -> a0
+  mv a0, s0
+  mv a1, s1
+  call readop # a0, a1 - 2 numbers -> a0
   
   call print_hex # prints hex num on a0
   
   j end 
 
 
-read_hex: # writes 7 digit nums to a0
+read_hex: # writes 8 digit nums to a0
+  li a1, 0 # result hex
   li a2, 7 # counter for input len
   li a3, 0 # counter for scan
-  j read_hex1
         
 read_hex1: 
   readch
@@ -42,18 +42,18 @@ read_hex1:
   
   addi t3, t3, -48
   
-  inside 0, 10 #0 - 9
+  inside t6, t3, 0, 10 #0 - 9
   beq t6, zero, add_
   
-  inside 17, 23 #a - f
+  inside t6, t3, 17, 23 #a - f
   addi t3, t3, -7
   beq t6, zero, add_
   
-  inside 42, 48 #A - F
+  inside t6, t3, 42, 48 #A - F
   addi t3, t3, -32
   beq t6, zero, add_
   
-  j return_hex
+  error "incorrect input"
   
 add_: # add hex digit to num | subfunc for read_hex
   slli a1, a1, 4
@@ -62,20 +62,20 @@ add_: # add hex digit to num | subfunc for read_hex
   addi a3, a3, 1
   ble a3, a2, read_hex1
   
-  println
   j return_hex
 
 return_hex:
   mv a0, a1
-  mv a1, zero
   ret
 
-readop: # reads and performs an operation %r1 ? %r2 -> a0
+readop: # reads and performs an operation a0, a1 - values -> a0
   li t0, 43         # +
   li t1, 45         # -
   li t2, 38         # &
   li t3, 124        # |
 
+	mv a2, a0
+	mv a3, a1
   readch
   println
   beq a0, t0, plus
@@ -83,10 +83,10 @@ readop: # reads and performs an operation %r1 ? %r2 -> a0
   beq a0, t2, and_
   beq a0, t3, or_
   
-  ret
+  error "Incorrect operation"
       
 plus:
-  add a0, a3, a2
+  add a0, a2, a3
   ret
 
 minus:
@@ -118,7 +118,7 @@ print_hex1:
   addi a5, a5, -4 # reducing the discharge counter
   
   mv t3, a0
-  inside 0, 10
+  inside t6, t3, 0, 10
   beq t6, zero, printnum
   j printlet
 
