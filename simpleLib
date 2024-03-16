@@ -17,10 +17,10 @@
 .end_macro
 
 .macro println
-  mv a1, a0
+  mv t6, a0
   li a0, 10
   syscall 11
-  mv a0, a1
+  mv a0, t6
 .end_macro
 
 .macro error %str
@@ -36,14 +36,6 @@ str: .asciz %str
 	mv t0, %r1
 	mv %r1, %r2
 	mv %r2, t0
-.end_macro
-
-.macro inside %x %y # а0 more or eq х and less у | t0, t1 - temp | t2 - result (inv)
-  slti t0, a0, %y
-  slti t1, a0, %x
-  not t1, t1
-  and t2, t0, t1
-  addi t2, t2, -1
 .end_macro
 
 .macro push1 %r1
