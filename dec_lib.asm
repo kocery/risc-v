@@ -4,7 +4,7 @@ j endlib
 
 .eqv scr t5
 
-.macro inside %res %arg %x %y # %arg more or eq õ and less ó | t4- temp | %res - result (inv)
+.macro inside %res %arg %x %y # %arg more or eq Ñ… and less Ñƒ | t4- temp | %res - result (inv)
   slti t4, %arg, %y
   slti scr, %arg, %x
   not scr, scr
@@ -29,11 +29,31 @@ j endlib
 	srli %x, %x, 1
 .end_macro
 
-div10dec: # a0 - num | uses t0, t1, t2, t3, a1, a2, a6
+mul10: # a0 -> 10*a0
+	detect_sign t3, a0
+	ifabs a0, t3
+	li t0, 1
+	li t1, 10
+	mv t4, a0
+	j mul10loop1
+
+mul10loop1:
+	bge t0, t1, endmul10loop
+	add a0, a0, t4
+	addi t0, t0, 1
+	j mul10loop1
+	
+endmul10loop:
+	beqz t3, return
+	neg a0, a0
+	ret
+	
+
+div10dec: # a0 -> div a0 | uses t0, t1, t2, t3, a1, a2, a6
 	detect_sign t3, a0
 	ifabs a0, t3
 	mv a6, a0
-
+	# algo was found in some strange book
 	srli t1, a6, 1
 	srli t2, a6, 2
 	add t0, t1, t2 # q = (n >> 1) + (n >> 2)
@@ -64,6 +84,7 @@ div10dec: # a0 - num | uses t0, t1, t2, t3, a1, a2, a6
 	neg a0, a0
 	ret
 
+
 mod10dec: # a0 -> mod a0 | uses: a1, a2, a6, t0, t1, t2, t3, t6
 	mv t6, a0 # old
 	push1 ra
@@ -78,6 +99,18 @@ mod10dec: # a0 -> mod a0 | uses: a1, a2, a6, t0, t1, t2, t3, t6
 	
 	sub a0, t6, a0
 	ret
+
+
+lenbin: # a0 -> len a0 | uses t0
+	li t0, 0
+
+lenbinloop:
+	srli a0, a0, 1
+	addi t0, t0, 1
+	bnez a0, lenbinloop
+	mv a0, t0
+	ret
+
 
 multdec: # a1 * a2 -> a0
 	li a5, 2147483647
@@ -103,6 +136,61 @@ return_mult:
 	return_neg:
 		neg a0, a0
 		ret
+
+
+sdivAB: # A = a0, B = a1 -> A\B = a0 | uses udivAB, scr, a0, a1
+	push1 ra
+	li scr, 0
+	bgez a0, BnegsdivAB
+	neg a0, a0
+	addi scr, scr, 1
+
+BnegsdivAB:
+	bgez a1, ressdivAB
+	neg a1, a1
+	addi scr, scr, -1
+
+ressdivAB:
+	call udivAB
+	beqz scr, endsdivAB
+	neg a0, a0
+
+endsdivAB:
+	pop1 ra
+	ret
+
+
+udivAB: # A = a0, B = a1 -> A\B = a0 | uses t0, t6, t1, t2, t3, a0, a1, a2, a3
+	push1 ra
+	mv a2, a0
+	mv a3, a1
+	call lenbin
+	mv a1, a0
+	call lenbin
+	li t6, 0
+	li t0, 0xffffffff
+	sub t1, a1, a0
+	sll t0, t0, t1
+	sll a3, a3, t1
+
+udivABloop1:
+	and t2, a2, t0
+	slli t6, t6, 1
+	bgt a3, t2, udivABloop2
+	addi t6, t6, 1
+	sub a2, a2, a3
+
+udivABloop2:
+	srli t0, t0, 1
+	srli a3, a3, 1
+	addi t1, t1, -1
+	bgez t1, udivABloop1
+
+endudivAB:
+	mv a0, t6
+	pop1 ra
+	ret
+
 
 read_dec:
 	li a5, 0 # result dec
@@ -154,11 +242,14 @@ return_dec:
 	neg a0, a0
 	ret
 
+
 incorrect:
 	error "incorrect input"
 
+
 overflow:
 	error "Overflow detected"  
+
 
 readop: # reads and performs an operation a0, a1 - values -> a0
   li t0, 43         # +
@@ -192,6 +283,7 @@ and_:
 or_:
   or a0, a2, a3
   ret
+
 
 print_dec: #prints dec number on a0
 	li a6, 0 # counter for discharge
@@ -238,6 +330,7 @@ print_dec3:
   addi a6, a6, -1
   
   j print_dec3
+
 
 return:
 	ret
