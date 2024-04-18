@@ -8,6 +8,10 @@
 	syscall 93
 .end_macro
 
+.macro sbrk
+    syscall 9
+.end_macro
+
 .macro readch
 	syscall 12
 .end_macro
@@ -15,6 +19,15 @@
 .macro printch
 	syscall 11
 .end_macro
+
+.macro print_str
+	syscall 4
+.end_macro
+
+.macro print_int
+	syscall 1
+.end_macro
+
 
 .macro println
   mv t6, a0
@@ -30,6 +43,20 @@ str: .asciz %str
   la a0, str
   syscall 4
   exit 1
+.end_macro
+
+.macro print_str %str
+.data
+str: .asciz %str
+.text
+  la a0, str
+  syscall 4
+.end_macro
+
+.macro print_int %int
+.text
+  li a0, %int
+  syscall 1
 .end_macro
 
 .macro swap %r1 %r2
