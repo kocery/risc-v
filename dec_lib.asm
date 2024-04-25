@@ -192,6 +192,33 @@ endudivAB:
 	ret
 
 
+isqrt: # args: a0 | uses t0, t1, t2, t5, t6 | result: a0
+	bltz a0, isqrterror
+	li t5, 30
+	li t6, 0
+	
+isqrtloop1:
+	li t1, -1
+	sll t1, t1, t5
+	and t2, a0, t1
+	slli t6, t6, 1
+	slli t0, t6, 1
+	addi t0, t0, 1
+	sll t0, t0, t5
+	addi t5, t5, -2
+	bgt t0, t2, isqrtloop2
+	addi t6, t6, 1
+	sub a0, a0, t0
+	
+isqrtloop2:
+	bgez t5, isqrtloop1
+	mv a0, t6
+	ret
+	
+isqrterror:
+	error "ERORR: negative number."
+
+
 read_dec:
 	li a5, 0 # result dec
   li a3, 9 # counter for input len
